@@ -13,6 +13,8 @@ fn main() {
         .add_systems(Startup, add_mouse)
         .add_systems(Update, set_mouse)
         .add_systems(Update, rotate_camera)
+        .add_systems(Update, move_camera)
+        .add_systems(Update, pan_camera)
         .add_systems(Update, draw_cursor)
         .run();
 }
@@ -21,10 +23,40 @@ fn rotate_camera(
     mouse_query: Query<&MouseInput>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    if let Ok(mouse_move) = mouse_query.get_single() {
+    if let Ok(mouse_input) = mouse_query.get_single() {
+        if mouse_input.left_pressed {
+            let mut camera_transform = camera_query.single_mut();
+            camera_transform.rotate_local_x(mouse_input.dy * 0.001);
+            camera_transform.rotate_y(mouse_input.dx * 0.001);
+        }
+    }
+}
+
+fn move_camera(
+    mouse_query: Query<&MouseInput>,
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+) {
+    if let Ok(mouse_input) = mouse_query.get_single() {
+        if mouse_input.right_pressed {
+            let mut camera_transform = camera_query.single_mut();
+            let right = mouse_input.dx * camera_transform.left() * 0.01;
+            let up = mouse_input.dy
+                * (camera_transform.forward().as_vec3()
+                    - camera_transform.forward().dot(Dir3::Y.as_vec3()) * Dir3::Y)
+                * 0.01;
+            camera_transform.translation += right + up;
+        }
+    }
+}
+
+fn pan_camera(
+    mouse_query: Query<&MouseInput>,
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+) {
+    if let Ok(mouse_input) = mouse_query.get_single() {
         let mut camera_transform = camera_query.single_mut();
-        camera_transform.rotate_local_x(mouse_move.dy * 0.001);
-        camera_transform.rotate_y(mouse_move.dx * 0.001);
+        let forward = camera_transform.forward() * mouse_input.wheel * 1.;
+        camera_transform.translation += forward;
     }
 }
 

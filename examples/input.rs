@@ -4,12 +4,6 @@ use bevy::{
     window::CursorGrabMode,
 };
 
-#[derive(Component)]
-struct MouseMove {
-    dx: f32,
-    dy: f32,
-}
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -21,11 +15,33 @@ fn main() {
         .run();
 }
 
-fn add_mouse(mut commands: Commands) {
-    commands.spawn(MouseMove { dx: 0., dy: 0. });
+#[derive(Component)]
+pub struct MouseInput {
+    pub dx: f32,
+    pub dy: f32,
+    pub left_pressed: bool,
+    pub right_pressed: bool,
+    pub wheel: f32,
 }
 
-fn set_mouse(mut query: Query<&mut MouseMove>, mut mouse_motion_events: EventReader<MouseMotion>) {
+pub fn add_mouse(mut commands: Commands) {
+    commands.spawn(MouseInput {
+        dx: 0.,
+        dy: 0.,
+        left_pressed: false,
+        right_pressed: false,
+        wheel: 0.,
+    });
+}
+
+pub fn set_mouse(
+    mut query: Query<&mut MouseInput>,
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+) {
+    let mut mouse_input = query.single_mut();
+
     let (dx, dy) = {
         let (mut dx, mut dy) = (0., 0.);
 
@@ -36,15 +52,56 @@ fn set_mouse(mut query: Query<&mut MouseMove>, mut mouse_motion_events: EventRea
 
         (dx, dy)
     };
-    if let Ok(mut mouse_move) = query.get_single_mut() {
-        mouse_move.dx = dx;
-        mouse_move.dy = dy;
-    }
+
+    let (left_pressed, right_pressed) = {
+        let (mut left_pressed, mut right_pressed) =
+            (mouse_input.left_pressed, mouse_input.right_pressed);
+
+        for event in mouse_button_input_events.read() {
+            match event.state {
+                bevy::input::ButtonState::Pressed => match event.button {
+                    MouseButton::Left => left_pressed = true,
+                    MouseButton::Right => right_pressed = true,
+                    _ => (),
+                },
+                bevy::input::ButtonState::Released => match event.button {
+                    MouseButton::Left => left_pressed = false,
+                    MouseButton::Right => right_pressed = false,
+                    _ => (),
+                },
+            }
+        }
+
+        (left_pressed, right_pressed)
+    };
+
+    let wheel = {
+        let mut wheel = 0.;
+
+        for event in mouse_wheel_events.read() {
+            wheel += event.y;
+        }
+
+        wheel
+    };
+
+    mouse_input.dx = dx;
+    mouse_input.dy = dy;
+    mouse_input.left_pressed = left_pressed;
+    mouse_input.right_pressed = right_pressed;
+    mouse_input.wheel = wheel;
 }
 
-fn print_mouse(query: Query<&MouseMove>) {
+fn print_mouse(query: Query<&MouseInput>) {
     if let Ok(mouse_move) = query.get_single() {
-        info!("{}, {}", mouse_move.dx, mouse_move.dy);
+        info!(
+            "(dx, dy) = ({}, {}), (left, right) = ({}, {}), wheel = {}",
+            mouse_move.dx,
+            mouse_move.dy,
+            mouse_move.left_pressed,
+            mouse_move.right_pressed,
+            mouse_move.wheel
+        );
     }
 }
 
