@@ -19,21 +19,47 @@ fn main() {
 fn convert_to_command(raw_command: &str) -> Command {
     let args: Vec<&str> = raw_command.split(' ').collect();
     if args.len() == 0 {
-        Command::None
+        Command::none()
     } else {
         match args[0] {
-            "CreateClass" => Command::CreateClass,
-            _ => Command::None,
+            "CreateClass" => Command::new(
+                CommandType::CreateClass,
+                args.iter().skip(1).map(|s| s.to_string()).collect(),
+            ),
+            _ => Command::none(),
         }
     }
 }
 
 fn run_command(command: Command) {
-    println!("{:?}", command);
+    match command.command_type {
+        CommandType::CreateClass => {
+            println!("Creating class with args: {:?}", command.args);
+        }
+        CommandType::None => {}
+    }
+}
+
+struct Command {
+    command_type: CommandType,
+    args: Vec<String>,
+}
+
+impl Command {
+    fn new(command_type: CommandType, args: Vec<String>) -> Self {
+        Self { command_type, args }
+    }
+
+    fn none() -> Self {
+        Self {
+            command_type: CommandType::None,
+            args: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
-enum Command {
+enum CommandType {
     CreateClass,
     None,
 }
